@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ABHIJITH EMI Management Portal</title>
+<!-- jsPDF CDN for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    margin: 0;
+    background: #f4f6f9;
+    color: #333;
+  }
+  header {
+    background: #0052cc;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-size: 1.2em;
+  }
+  .container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 15px;
+  }
+  .section {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  h2 {
+    color: #0052cc;
+    font-size: 1.1em;
+    border-bottom: 2px solid #0052cc;
+    padding-bottom: 5px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.9em;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    text-align: center;
+    padding: 8px;
+  }
+  th {
+    background: #eaf0f9;
+  }
+  input, select, button {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 1em;
+  }
+  button {
+    background: #0052cc;
+    color: white;
+    border: none;
+    margin-top: 10px;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #003f99;
+  }
+  .delete-btn {
+    background: #e53935;
+  }
+  .dashboard-item {
+    background: #f9fbfd;
+    border: 1px solid #dce3ed;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .flex {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  @media (min-width: 768px) {
+    .container {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .section {
+      flex: 1;
+      min-width: 300px;
+    }
+  }
+</style>
+</head>
+<body>
+<header>📱 ABHIJITH EMI Management Portal</header>
+
+<div class="container">
+  <!-- EMI Section -->
+  <div class="section">
+    <h2>EMI List</h2>
+    <button onclick="addEMI()">➕ Add EMI</button>
+    <table>
+      <thead>
+        <tr>
+          <th>EMI Name</th>
+          <th>Total</th>
+          <th>Paid</th>
+          <th>Balance</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="emiTable"></tbody>
+    </table>
+  </div>
+
+  <!-- Payment Section -->
+  <div class="section">
+    <h2>💵 Record Payment</h2>
+    <div class="flex">
+      <label>Select EMI:</label>
+      <select id="emiSelect"></select>
+
+      <label>Installment Amount (₹):</label>
+      <input type="number" id="paymentAmount" min="0" required />
+
+      <label>Date:</label>
+      <input type="date" id="paymentDate" required />
+
+      <label>Receiver Name:</label>
+      <input type="text" id="receiverName" placeholder="Enter receiver name" />
+
+      <button onclick="recordPayment()">💰 Record Payment</button>
+    </div>
+  </div>
+
+  <!-- Transaction Section -->
+  <div class="section">
+    <h2>📜 EMI Transactions</h2>
+    <div class="flex">
+      <label>Select EMI to View Transactions:</label>
+      <select id="emiTransactionSelect" onchange="showTransactions()"></select>
+      <table id="transactionTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Receiver</th>
+          </tr>
+        </thead>
+        <tbody id="transactionBody"></tbody>
+      </table>
+      <button onclick="exportPDF()">📄 Export to PDF</button>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="section">
+    <h2>📊 EMI Dashboard</h2>
+    <div id="dashboard"></div>
+  </div>
+</div>
+
+<script>
+let emiList = [
+  { id: 1, name: "EMI 1", total: 100000, paid: 0, balance: 100000, transactions: [] },
+  { id: 2, name: "EMI 2", total: 75000, paid: 0, balance: 75000, transactions: [] },
+  { id: 3, name: "EMI 3", total: 50000, paid: 0, balance: 50000, transactions: [] }
+];
+
+function renderEMIs() {
+  const body = document.getElementById("emiTable");
+  body.innerHTML = "";
+  emiList.forEach(emi => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td contenteditable="true" oninput="editEMIName(${emi.id}, this.innerText)">${emi.name}</td>
+      <td><input type="number" value="${emi.total}" onchange="updateEMITotal(${emi.id}, this.value)"></td>
+      <td>₹${emi.paid.toLocaleString()}</td>
+      <td>₹${emi.balance.toLocaleString()}</td>
+      <td><button class="delete-btn" onclick="deleteEMI(${emi.id})">🗑️</button></td>
+    `;
+    body.appendChild(tr);
+  });
+  renderDropdowns();
+  renderDashboard();
+}
+
+function renderDropdowns() {
+  const select1 = document.getElementById("emiSelect");
+  const select2 = document.getElementById("emiTransactionSelect");
+  select1.innerHTML = "";
+  select2.innerHTML = "";
+  emiList.forEach(emi => {
+    const opt1 = document.createElement("option");
+    const opt2 = document.createElement("option");
+    opt1.value = opt2.value = emi.id;
+    opt1.text = opt2.text = emi.name;
+    select1.appendChild(opt1);
+    select2.appendChild(opt2);
+  });
+}
+
+function addEMI() {
+  const id = Date.now();
+  emiList.push({ id, name: "New EMI", total: 0, paid: 0, balance: 0, transactions: [] });
+  renderEMIs();
+}
+
+function deleteEMI(id) {
+  emiList = emiList.filter(e => e.id !== id);
+  renderEMIs();
+}
+
+function editEMIName(id, name) {
+  const emi = emiList.find(e => e.id === id);
+  if (emi) emi.name = name;
+  renderDropdowns();
+  renderDashboard();
+}
+
+function updateEMITotal(id, value) {
+  const emi = emiList.find(e => e.id === id);
+  if (!emi) return;
+  emi.total = parseFloat(value) || 0;
+  emi.balance = emi.total - emi.paid;
+  renderEMIs();
+}
+
+function recordPayment() {
+  const emiId = parseInt(document.getElementById("emiSelect").value);
+  const amount = parseFloat(document.getElementById("paymentAmount").value);
+  const date = document.getElementById("paymentDate").value;
+  const receiver = document.getElementById("receiverName").value.trim();
+
+  if (!emiId || !amount || !date) {
+    alert("Please fill all payment details!");
+    return;
+  }
+
+  const emi = emiList.find(e => e.id === emiId);
+  if (!emi) return;
+
+  emi.paid += amount;
+  if (emi.paid > emi.total) emi.paid = emi.total;
+  emi.balance = emi.total - emi.paid;
+  emi.transactions.push({ date, amount, receiver });
+
+  alert(`✅ Payment of ₹${amount} added to ${emi.name}`);
+  renderEMIs();
+  showTransactions();
+  document.getElementById("paymentAmount").value = "";
+  document.getElementById("receiverName").value = "";
+}
+
+function showTransactions() {
+  const emiId = parseInt(document.getElementById("emiTransactionSelect").value);
+  const emi = emiList.find(e => e.id === emiId);
+  const tbody = document.getElementById("transactionBody");
+  tbody.innerHTML = "";
+
+  if (!emi || emi.transactions.length === 0) {
+    tbody.innerHTML = "<tr><td colspan='3'>No transactions yet</td></tr>";
+    return;
+  }
+
+  emi.transactions.forEach(t => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${t.date}</td><td>₹${t.amount.toLocaleString()}</td><td>${t.receiver || "-"}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function exportPDF() {
+  const emiId = parseInt(document.getElementById("emiTransactionSelect").value);
+  const emi = emiList.find(e => e.id === emiId);
+  if (!emi) return alert("Please select an EMI!");
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text(`EMI Transactions - ${emi.name}`, 10, 10);
+  doc.setFontSize(11);
+  let y = 20;
+
+  if (emi.transactions.length === 0) {
+    doc.text("No transactions available.", 10, y);
+  } else {
+    doc.text("Date        Amount (₹)        Receiver", 10, y);
+    y += 10;
+    emi.transactions.forEach(t => {
+      doc.text(`${t.date}    ₹${t.amount.toLocaleString()}    ${t.receiver || "-"}`, 10, y);
+      y += 8;
+    });
+  }
+
+  doc.save(`${emi.name}_Transactions.pdf`);
+}
+
+function renderDashboard() {
+  const dash = document.getElementById("dashboard");
+  dash.innerHTML = "";
+  emiList.forEach(emi => {
+    const div = document.createElement("div");
+    div.className = "dashboard-item";
+    div.innerHTML = `
+      <strong>${emi.name}</strong><br>
+      Total: ₹${emi.total.toLocaleString()}<br>
+      Paid: ₹${emi.paid.toLocaleString()}<br>
+      Balance: ₹${emi.balance.toLocaleString()}
+    `;
+    dash.appendChild(div);
+  });
+}
+
+renderEMIs();
+showTransactions();
+</script>
+</body>
+</html>
