@@ -72,6 +72,9 @@
   .delete-btn {
     background: #e53935;
   }
+  .edit-btn {
+    background: #f4b400;
+  }
   .dashboard-item {
     background: #f9fbfd;
     border: 1px solid #dce3ed;
@@ -151,6 +154,7 @@
             <th>Date</th>
             <th>Amount</th>
             <th>Receiver</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="transactionBody"></tbody>
@@ -169,7 +173,6 @@
 <script>
 let emiList = [];
 
-// 🔹 Load data from localStorage
 function loadData() {
   const data = localStorage.getItem("emiList");
   emiList = data ? JSON.parse(data) : [
@@ -223,7 +226,6 @@ function addEMI() {
   renderEMIs();
 }
 
-// ✅ Delete Confirmation Added
 function confirmDelete(id) {
   const emi = emiList.find(e => e.id === id);
   if (!emi) return;
@@ -268,7 +270,7 @@ function recordPayment() {
   emi.paid += amount;
   if (emi.paid > emi.total) emi.paid = emi.total;
   emi.balance = emi.total - emi.paid;
-  emi.transactions.push({ date, amount, receiver });
+  emi.transactions.push({ id: Date.now(), date, amount, receiver });
 
   alert(`✅ ₹${amount.toLocaleString()} added to ${emi.name}`);
   saveData();
@@ -283,15 +285,62 @@ function showTransactions() {
   tbody.innerHTML = "";
 
   if (!emi || emi.transactions.length === 0) {
-    tbody.innerHTML = "<tr><td colspan='3'>No transactions yet</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='4'>No transactions yet</td></tr>";
     return;
   }
 
   emi.transactions.forEach(t => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${t.date}</td><td>₹${t.amount.toLocaleString()}</td><td>${t.receiver || "-"}</td>`;
+    tr.innerHTML = `
+      <td contenteditable="true" oninput="updateTransaction(${emi.id}, ${t.id}, 'date', this.innerText)">${t.date}</td>
+      <td contenteditable="true" oninput="updateTransaction(${emi.id}, ${t.id}, 'amount', this.innerText)">₹${t.amount}</td>
+      <td contenteditable="true" oninput="updateTransaction(${emi.id}, ${t.id}, 'receiver', this.innerText)">${t.receiver || "-"}</td>
+      <td>
+        <button class="edit-btn" onclick="editTransaction(${emi.id}, ${t.id})">✏️</button>
+        <button class="delete-btn" onclick="deleteTransaction(${emi.id}, ${t.id})">🗑️</button>
+      </td>
+    `;
     tbody.appendChild(tr);
   });
+}
+
+function updateTransaction(emiId, transactionId, field, value) {
+  const emi = emiList.find(e => e.id === emiId);
+  const transaction = emi.transactions.find(t => t.id === transactionId);
+  if (!transaction) return;
+
+  if (field === 'amount') {
+    const oldAmount = transaction.amount;
+    const newAmount = parseFloat(value.replace(/[₹,]/g, "")) || 0;
+    emi.paid += (newAmount - oldAmount);
+    emi.balance = emi.total - emi.paid;
+    transaction.amount = newAmount;
+  } else {
+    transaction[field] = value;
+  }
+
+  saveData();
+  renderEMIs();
+  showTransactions();
+}
+
+function editTransaction(emiId, transactionId) {
+  alert("💡 You can edit the date, amount, or receiver directly in the table. Changes are saved automatically.");
+}
+
+function deleteTransaction(emiId, transactionId) {
+  const emi = emiList.find(e => e.id === emiId);
+  const transaction = emi.transactions.find(t => t.id === transactionId);
+  if (!emi || !transaction) return;
+
+  if (confirm(`Delete this transaction of ₹${transaction.amount}?`)) {
+    emi.paid -= transaction.amount;
+    emi.balance = emi.total - emi.paid;
+    emi.transactions = emi.transactions.filter(t => t.id !== transactionId);
+    saveData();
+    renderEMIs();
+    showTransactions();
+  }
 }
 
 function exportPDF() {
@@ -344,7 +393,6 @@ function clearAllData() {
   }
 }
 
-// Initialize
 window.onload = loadData;
 </script>
 </body>
