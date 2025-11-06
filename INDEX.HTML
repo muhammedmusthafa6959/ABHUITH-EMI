@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ABHIJITH EMI Management Portal</title>
-<!-- jsPDF CDN for PDF export -->
+<title>EMI Management Portal</title>
+<!-- jsPDF for PDF Export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   body {
@@ -98,7 +98,7 @@
 </style>
 </head>
 <body>
-<header>📱 ABHIJITH EMI Management Portal</header>
+<header>📱 EMI Management Portal</header>
 
 <div class="container">
   <!-- EMI Section -->
@@ -167,11 +167,15 @@
 </div>
 
 <script>
-let emiList = [
+let emiList = JSON.parse(localStorage.getItem("emiList")) || [
   { id: 1, name: "EMI 1", total: 100000, paid: 0, balance: 100000, transactions: [] },
   { id: 2, name: "EMI 2", total: 75000, paid: 0, balance: 75000, transactions: [] },
   { id: 3, name: "EMI 3", total: 50000, paid: 0, balance: 50000, transactions: [] }
 ];
+
+function saveData() {
+  localStorage.setItem("emiList", JSON.stringify(emiList));
+}
 
 function renderEMIs() {
   const body = document.getElementById("emiTable");
@@ -183,26 +187,25 @@ function renderEMIs() {
       <td><input type="number" value="${emi.total}" onchange="updateEMITotal(${emi.id}, this.value)"></td>
       <td>₹${emi.paid.toLocaleString()}</td>
       <td>₹${emi.balance.toLocaleString()}</td>
-      <td><button class="delete-btn" onclick="deleteEMI(${emi.id})">🗑️</button></td>
+      <td><button class="delete-btn" onclick="confirmDelete(${emi.id})">🗑️</button></td>
     `;
     body.appendChild(tr);
   });
   renderDropdowns();
   renderDashboard();
+  saveData();
 }
 
 function renderDropdowns() {
-  const select1 = document.getElementById("emiSelect");
-  const select2 = document.getElementById("emiTransactionSelect");
-  select1.innerHTML = "";
-  select2.innerHTML = "";
-  emiList.forEach(emi => {
-    const opt1 = document.createElement("option");
-    const opt2 = document.createElement("option");
-    opt1.value = opt2.value = emi.id;
-    opt1.text = opt2.text = emi.name;
-    select1.appendChild(opt1);
-    select2.appendChild(opt2);
+  const selects = [document.getElementById("emiSelect"), document.getElementById("emiTransactionSelect")];
+  selects.forEach(select => {
+    select.innerHTML = "";
+    emiList.forEach(emi => {
+      const opt = document.createElement("option");
+      opt.value = emi.id;
+      opt.text = emi.name;
+      select.appendChild(opt);
+    });
   });
 }
 
@@ -212,6 +215,13 @@ function addEMI() {
   renderEMIs();
 }
 
+function confirmDelete(id) {
+  const emi = emiList.find(e => e.id === id);
+  if (confirm(`Are you sure you want to delete "${emi.name}"? This will remove all its transactions.`)) {
+    deleteEMI(id);
+  }
+}
+
 function deleteEMI(id) {
   emiList = emiList.filter(e => e.id !== id);
   renderEMIs();
@@ -219,9 +229,10 @@ function deleteEMI(id) {
 
 function editEMIName(id, name) {
   const emi = emiList.find(e => e.id === id);
-  if (emi) emi.name = name;
+  if (emi) emi.name = name.trim();
   renderDropdowns();
   renderDashboard();
+  saveData();
 }
 
 function updateEMITotal(id, value) {
@@ -251,11 +262,12 @@ function recordPayment() {
   emi.balance = emi.total - emi.paid;
   emi.transactions.push({ date, amount, receiver });
 
-  alert(`✅ Payment of ₹${amount} added to ${emi.name}`);
-  renderEMIs();
-  showTransactions();
+  alert(`✅ Payment of ₹${amount.toLocaleString()} added to ${emi.name}`);
   document.getElementById("paymentAmount").value = "";
   document.getElementById("receiverName").value = "";
+  saveData();
+  renderEMIs();
+  showTransactions();
 }
 
 function showTransactions() {
@@ -316,8 +328,10 @@ function renderDashboard() {
     `;
     dash.appendChild(div);
   });
+  saveData();
 }
 
+// Initialize
 renderEMIs();
 showTransactions();
 </script>
