@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>EMI - Management Portal</title>
-<!-- jsPDF for PDF Export -->
+<title>EMI Management Portal</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   body {
@@ -98,13 +97,14 @@
 </style>
 </head>
 <body>
-<header>📱 EMI Management Portal</header>
+<header>📱 EMI Management Portal (Local Storage)</header>
 
 <div class="container">
   <!-- EMI Section -->
   <div class="section">
     <h2>EMI List</h2>
     <button onclick="addEMI()">➕ Add EMI</button>
+    <button style="background:#555" onclick="clearAllData()">🧹 Clear All Data</button>
     <table>
       <thead>
         <tr>
@@ -167,11 +167,19 @@
 </div>
 
 <script>
-let emiList = JSON.parse(localStorage.getItem("emiList")) || [
-  { id: 1, name: "EMI 1", total: 100000, paid: 0, balance: 100000, transactions: [] },
-  { id: 2, name: "EMI 2", total: 75000, paid: 0, balance: 75000, transactions: [] },
-  { id: 3, name: "EMI 3", total: 50000, paid: 0, balance: 50000, transactions: [] }
-];
+let emiList = [];
+
+// 🔹 Load data from localStorage
+function loadData() {
+  const data = localStorage.getItem("emiList");
+  emiList = data ? JSON.parse(data) : [
+    { id: 1, name: "EMI 1", total: 100000, paid: 0, balance: 100000, transactions: [] },
+    { id: 2, name: "EMI 2", total: 75000, paid: 0, balance: 75000, transactions: [] },
+    { id: 3, name: "EMI 3", total: 50000, paid: 0, balance: 50000, transactions: [] }
+  ];
+  renderEMIs();
+  showTransactions();
+}
 
 function saveData() {
   localStorage.setItem("emiList", JSON.stringify(emiList));
@@ -215,16 +223,16 @@ function addEMI() {
   renderEMIs();
 }
 
+// ✅ Delete Confirmation Added
 function confirmDelete(id) {
   const emi = emiList.find(e => e.id === id);
-  if (confirm(`Are you sure you want to delete "${emi.name}"? This will remove all its transactions.`)) {
-    deleteEMI(id);
+  if (!emi) return;
+  const sure = confirm(`⚠️ Are you sure you want to delete "${emi.name}"?\nThis will remove all its transactions permanently.`);
+  if (sure) {
+    emiList = emiList.filter(e => e.id !== id);
+    saveData();
+    renderEMIs();
   }
-}
-
-function deleteEMI(id) {
-  emiList = emiList.filter(e => e.id !== id);
-  renderEMIs();
 }
 
 function editEMIName(id, name) {
@@ -262,9 +270,7 @@ function recordPayment() {
   emi.balance = emi.total - emi.paid;
   emi.transactions.push({ date, amount, receiver });
 
-  alert(`✅ Payment of ₹${amount.toLocaleString()} added to ${emi.name}`);
-  document.getElementById("paymentAmount").value = "";
-  document.getElementById("receiverName").value = "";
+  alert(`✅ ₹${amount.toLocaleString()} added to ${emi.name}`);
   saveData();
   renderEMIs();
   showTransactions();
@@ -331,9 +337,15 @@ function renderDashboard() {
   saveData();
 }
 
+function clearAllData() {
+  if (confirm("⚠️ This will erase ALL EMI data permanently. Continue?")) {
+    localStorage.removeItem("emiList");
+    loadData();
+  }
+}
+
 // Initialize
-renderEMIs();
-showTransactions();
+window.onload = loadData;
 </script>
 </body>
 </html>
